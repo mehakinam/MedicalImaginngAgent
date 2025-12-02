@@ -10,7 +10,8 @@ numpy
 Pillow
 
 ddgs
-
+markdown2
 opencv-python-headless
 scikit-image
+
 
