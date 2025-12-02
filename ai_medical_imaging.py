@@ -31,7 +31,7 @@ with st.sidebar:
         api_key = st.text_input("Enter your Google API Key:", type="password")
         st.caption("Get your API key from Google AI Studio.")
         if api_key:
-            st.session_state.GOOGLE_API_KEY = "AIzaSyAHQRGGYenw_BGRMQbr8ON7C46-gzaQjqA"
+            st.session_state.GOOGLE_API_KEY = api_key
             st.success("API Key Saved!")
             st.rerun()
     else:
@@ -392,3 +392,4 @@ else:
     if not st.session_state.GOOGLE_API_KEY:
 
         st.warning("Please configure your Google API Key in the sidebar to enable analysis.")
+
