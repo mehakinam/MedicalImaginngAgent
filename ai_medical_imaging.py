@@ -68,23 +68,52 @@ def extract_dicom_metadata_helper(file_bytes):
 
 
 def dicom_to_pil_helper(file_bytes):
-    """Convert DICOM bytes to PIL Image"""
     try:
         ds = pydicom.dcmread(BytesIO(file_bytes), force=True)
-        data = apply_voi_lut(ds.pixel_array, ds)
+        
+        # 1. Get the pixel array
+        pixel_array = ds.pixel_array.astype(float)
+        
+        # 2. Handle Photometric Interpretation (Invert if needed)
+        # MONOCHROME1 means 0=White, so we invert it to standard 0=Black
+        if hasattr(ds, "PhotometricInterpretation") and ds.PhotometricInterpretation == "MONOCHROME1":
+            pixel_array = np.max(pixel_array) - pixel_array
 
-        if len(data.shape) == 3:
-            data = data[0]
+        # 3. Apply standard DICOM Windowing (VOI LUT) if available
+        # This uses the settings embedded by the radiologist/machine
+        from pydicom.pixel_data_handlers.util import apply_voi_lut
+        try:
+            pixel_array = apply_voi_lut(ds.pixel_array, ds)
+            pixel_array = pixel_array.astype(float)
+        except Exception:
+            pass # If VOI LUT fails, we fall back to auto-windowing below
 
-        if getattr(ds, "PhotometricInterpretation", "").upper() == "MONOCHROME1":
-            data = np.max(data) - data
+        # 4. Handle 3D volumes (take the middle slice)
+        if len(pixel_array.shape) == 3:
+            mid_slice = pixel_array.shape[0] // 2
+            pixel_array = pixel_array[mid_slice]
 
-        data = (data - data.min()) / (data.max() - data.min()) * 255
-        data = data.astype(np.uint8)
-
-        return PILImage.fromarray(data).convert("L")
-    except:
+        # 5. AUTO-WINDOWING / CONTRAST ENHANCEMENT
+        # Instead of using min/max, we clip the top/bottom 1% of pixels.
+        # This removes outliers (like pure black air or bright metal) to fix contrast.
+        if pixel_array.size > 0:
+            p_low, p_high = np.percentile(pixel_array, (1, 99)) # 1st and 99th percentile
+            if p_high > p_low:
+                pixel_array = np.clip(pixel_array, p_low, p_high)
+                pixel_array = (pixel_array - p_low) / (p_high - p_low)
+            else:
+                pixel_array = np.zeros_like(pixel_array) # Avoid division by zero
+        
+        # 6. Convert to standard 8-bit image
+        pixel_array = (pixel_array * 255).astype(np.uint8)
+        
+        return PILImage.fromarray(pixel_array).convert("L")
+    
+    except Exception as e:
+        print(f"Error converting DICOM: {e}")
+        # Return a placeholder on error
         return PILImage.new("L", (512, 512), color=128)
+
 
 
 def generate_pdf_helper(image: PILImage, analysis_text: str, dicom_metadata: dict = None):
