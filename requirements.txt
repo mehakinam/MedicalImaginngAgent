@@ -9,3 +9,8 @@ pydicom
 numpy
 Pillow
 
+ddgs
+
+opencv-python-headless
+scikit-image
+
