@@ -253,7 +253,7 @@ def generate_pdf_report(analysis_text: str) -> str:
 def create_agent():
     """Create medical agent with tools"""
     return Agent(
-        model=Gemini(id="gemini-2.5-flash-lite", api_key=st.session_state.GOOGLE_API_KEY),
+        model=Gemini(id="gemini-2.5-pro", api_key=st.session_state.GOOGLE_API_KEY),
         tools=[
             DuckDuckGoTools(),
             get_dicom_metadata,
@@ -314,7 +314,7 @@ Format your response using clear markdown headers and bullet points. Be concise 
 # ----------------------------------------------------------
 # Streamlit UI
 # ----------------------------------------------------------
-st.title("Medical Imaging Diagnosis Agent")
+st.title("🏥 Medical Imaging Diagnosis Agent")
 st.caption("AI-powered radiology analysis with automated report generation")
 
 if "analysis" not in st.session_state:
@@ -420,5 +420,3 @@ else:
     
     if not st.session_state.GOOGLE_API_KEY:
         st.warning("Please configure your Google API Key in the sidebar to enable analysis.")
-
-
