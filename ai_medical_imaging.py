@@ -770,7 +770,7 @@ def generate_pdf_report(analysis_text: str) -> str:
 # ----------------------------------------------------------
 def create_agent():
     return Agent(
-        model=Gemini(id="gemini-2.5-flash-lite", api_key=st.session_state.GOOGLE_API_KEY),
+        model=Gemini(id="gemini-2.5-proe", api_key=st.session_state.GOOGLE_API_KEY),
         tools=[DuckDuckGoTools(), get_dicom_metadata, generate_pdf_report],
         markdown=True
     )
@@ -1067,3 +1067,4 @@ st.markdown(f"""
     <span style="opacity:0.7;">For educational and research purposes only. Always consult qualified healthcare professionals.</span>
 </div>
 """, unsafe_allow_html=True)
+
