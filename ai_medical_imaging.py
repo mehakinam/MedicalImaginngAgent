@@ -314,7 +314,7 @@ Format your response using clear markdown headers and bullet points. Be concise 
 # ----------------------------------------------------------
 # Streamlit UI
 # ----------------------------------------------------------
-st.title("🏥 Medical Imaging Diagnosis Agent")
+st.title("Medical Imaging Diagnosis Agent")
 st.caption("AI-powered radiology analysis with automated report generation")
 
 if "analysis" not in st.session_state:
@@ -420,4 +420,5 @@ else:
     
     if not st.session_state.GOOGLE_API_KEY:
         st.warning("Please configure your Google API Key in the sidebar to enable analysis.")
+
 
