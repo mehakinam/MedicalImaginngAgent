@@ -115,6 +115,40 @@ def dicom_to_pil_helper(file_bytes):
         return PILImage.new("L", (512, 512), color=128)
 
 
+def pet_ct_fusion(ct_bytes: bytes, pet_bytes: bytes, alpha=0.4):
+    """
+    Fuse CT (grayscale) with PET (heatmap SUV)
+    """
+    ct_ds = pydicom.dcmread(BytesIO(ct_bytes), force=True)
+    pet_ds = pydicom.dcmread(BytesIO(pet_bytes), force=True)
+
+    # --- CT IMAGE ---
+    ct_img = apply_voi_lut(ct_ds.pixel_array, ct_ds).astype(float)
+    ct_img = (ct_img - ct_img.min()) / (ct_img.max() - ct_img.min())
+    ct_img = (ct_img * 255).astype(np.uint8)
+    ct_img = PILImage.fromarray(ct_img).convert("RGB")
+
+    # --- PET IMAGE (SUV) ---
+    pet = pet_ds.pixel_array.astype(float)
+
+    # SUV calculation (simplified standard)
+    if hasattr(pet_ds, "RescaleSlope"):
+        pet *= pet_ds.RescaleSlope
+    if hasattr(pet_ds, "RescaleIntercept"):
+        pet += pet_ds.RescaleIntercept
+
+    pet = np.clip(pet, 0, np.percentile(pet, 99))
+    pet = pet / pet.max()
+    pet = (pet * 255).astype(np.uint8)
+
+    pet_img = PILImage.fromarray(pet).resize(ct_img.size)
+    pet_img = pet_img.convert("RGB")
+
+    # --- FUSION ---
+    fused = PILImage.blend(ct_img, pet_img, alpha=alpha)
+    return fused
+
+
 
 def generate_pdf_helper(image: PILImage, analysis_text: str, dicom_metadata: dict = None):
     """Generate PDF from image and analysis text"""
@@ -271,7 +305,12 @@ def get_analysis_prompt(is_dicom: bool) -> str:
     
     base_prompt = """You are a highly skilled medical imaging expert with extensive knowledge in radiology and diagnostic imaging.
 
-"""
+IMPORTANT RULES:
+- You MUST be explicit about uncertainty.
+- Assign confidence scores (%) to findings and diagnoses.
+- If unsure, state low confidence clearly.
+
+""" 
     
     if is_dicom:
         base_prompt += """IMPORTANT: First, call the get_dicom_metadata tool to retrieve patient information from this DICOM file.
@@ -285,14 +324,14 @@ def get_analysis_prompt(is_dicom: bool) -> str:
 - Identify anatomical region and positioning
 - Comment on image quality
 
-### 2. Key Findings
+### 2. Key Findings 
 - List primary observations systematically
 - Note abnormalities with measurements, location, size, shape
 - Rate severity: Normal/Mild/Moderate/Severe
 
 ### 3. Diagnostic Assessment
-- Provide primary diagnosis with confidence
-- List differential diagnoses
+- Provide primary diagnosis with **confidence score**
+- List differential diagnoses (with confidence)
 - Note critical/urgent findings
 
 ### 4. Patient-Friendly Explanation
@@ -322,7 +361,7 @@ if "analysis" not in st.session_state:
 if "pdf" not in st.session_state:
     st.session_state.pdf = None
 
-uploaded = st.file_uploader("Upload Medical Image", ["png", "jpg", "jpeg", "dcm", "dicom"])
+uploaded = st.file_uploader("Upload Medical Image (CT / PET / PET-CT)", ["png", "jpg", "jpeg", "dcm", "dicom"])
 
 # ------------ SHOW MESSAGE ONLY IF NO IMAGE ------------
 if uploaded is None:
@@ -405,6 +444,7 @@ else:
         st.markdown("---")
         st.markdown("### 📋 Analysis Results")
         st.markdown(st.session_state.analysis)
+       
 
         if st.session_state.pdf:
             st.markdown("---")
